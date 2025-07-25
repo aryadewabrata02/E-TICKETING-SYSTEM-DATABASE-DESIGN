@@ -1,0 +1,71 @@
+-- ===========================
+-- E-TICKETING SYSTEM DATABASE DESIGN
+-- PostgreSQL Format
+-- ===========================
+
+-- Tabel pengguna
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabel kartu prepaid
+CREATE TABLE cards (
+    card_id VARCHAR(20) PRIMARY KEY, -- ID unik kartu RFID/NFC
+    user_id INT REFERENCES users(user_id),
+    balance NUMERIC(10, 2) NOT NULL CHECK (balance >= 0),
+    status VARCHAR(20) DEFAULT 'active', -- active, blocked, expired
+    last_checkin_terminal INT, -- nullable
+    last_checkin_time TIMESTAMP, -- nullable
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabel terminal (misalnya Terminal 1–5)
+CREATE TABLE terminals (
+    terminal_id SERIAL PRIMARY KEY,
+    terminal_name VARCHAR(100) NOT NULL
+);
+
+-- Tabel gate (gerbang entry/exit)
+CREATE TABLE gates (
+    gate_id SERIAL PRIMARY KEY,
+    terminal_id INT REFERENCES terminals(terminal_id),
+    gate_type VARCHAR(10) CHECK (gate_type IN ('entry', 'exit')), -- entry atau exit
+    location_description TEXT
+);
+
+-- Tabel tarif antar terminal
+CREATE TABLE tariffs (
+    origin_terminal_id INT REFERENCES terminals(terminal_id),
+    destination_terminal_id INT REFERENCES terminals(terminal_id),
+    fare NUMERIC(10, 2) NOT NULL CHECK (fare >= 0),
+    PRIMARY KEY (origin_terminal_id, destination_terminal_id)
+);
+
+-- Tabel transaksi (check-in dan check-out)
+CREATE TABLE transactions (
+    transaction_id SERIAL PRIMARY KEY,
+    card_id VARCHAR(20) REFERENCES cards(card_id),
+    user_id INT REFERENCES users(user_id),
+    checkin_terminal_id INT REFERENCES terminals(terminal_id),
+    checkout_terminal_id INT REFERENCES terminals(terminal_id),
+    checkin_time TIMESTAMP,
+    checkout_time TIMESTAMP,
+    fare NUMERIC(10, 2),
+    status VARCHAR(20) CHECK (status IN ('success', 'failed', 'incomplete')),
+    source VARCHAR(20) CHECK (source IN ('online', 'offline')), -- mode transaksi
+    synced BOOLEAN DEFAULT FALSE, -- apakah sudah tersinkron dari offline
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabel log untuk audit dan sinkronisasi offline
+CREATE TABLE sync_logs (
+    log_id SERIAL PRIMARY KEY,
+    gate_id INT REFERENCES gates(gate_id),
+    card_id VARCHAR(20),
+    operation VARCHAR(20), -- check-in / check-out / sync
+    data JSONB,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
