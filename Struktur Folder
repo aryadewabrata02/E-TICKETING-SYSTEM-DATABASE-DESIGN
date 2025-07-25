@@ -1,0 +1,7 @@
+e-ticketing-api/
+├── main.go
+├── database.go
+├── handlers.go
+├── models.go
+├── middleware.go
+└── go.mo
